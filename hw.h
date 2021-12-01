@@ -8,41 +8,72 @@ template<typename T>
         using const_pointer = const T*;
         using reference = T&;
         using const_reference = const T&;
+        void* meme;
+        bool is_zanyato[10] { false, false, false, false, false, false, false, false, false, false };
 
     template<typename U>
     struct rebind {
         using other = logging_allocator<U>;
     };
 
-    logging_allocator() = default;
-    ~logging_allocator() = default;
+    logging_allocator(){
+        //std::cout << "constructor\n";
+        meme = std::malloc(10*sizeof(T));
+        if (!meme){
+            throw std::bad_alloc();
+        }
+    }
+    ~logging_allocator()
+    {
+        //std::cout << "destructor\n";
+        std::free(meme);
+    }
 
     template<typename U> 
     logging_allocator(const logging_allocator<U>&) {
 
     }
 
-    T *allocate(std::size_t n = 10) {
-        auto p = std::malloc(n * sizeof(T));
-        if (!p)
-            throw std::bad_alloc();
-        return reinterpret_cast<T *>(p);
+    T *allocate(std::size_t count) {
+        //std::cout << "allocate bytes: " << count << '\n';
+        for (int i = 0; i < 10; ++i) {
+            if (is_zanyato[i] == false) {
+                bool elementsInRowIsNotBisy = true;
+                for (int j = 1; j < static_cast<int> (count); ++j) {
+                    if (is_zanyato[i + j]) {
+                        elementsInRowIsNotBisy = false;
+                        break;
+                    }
+                }
+                if (elementsInRowIsNotBisy) {
+                    //std::cout << "element with offset " << i << (reinterpret_cast<T *>(meme) + i) << '\n';
+                    for (int j = 0; j < static_cast<int> (count); ++j) {
+                        is_zanyato[i + j] = true;
+                    }
+
+                    return reinterpret_cast<T *>(meme) + i;
+                }
+            }
+        }
+        throw std::bad_alloc();
+//        return reinterpret_cast<T *>(meme);
     }
 
-    void deallocate(T *p, std::size_t) {
-
-        std::free(p);
+    void deallocate(T* ptr, std::size_t count) {
+        T* memeWithType = reinterpret_cast<T*>(meme);
+        const int firstIndex = ptr - memeWithType;
+        for (int i = 0; i < static_cast<int> (count); ++i) {
+            is_zanyato[firstIndex + i] = false;
+        }
     }
 
     template<typename U, typename ...Args>
-    void construct(U *p, Args &&...args) {
-
-        new(p) U(std::forward<Args>(args)...);
+    void construct(U *meme, Args &&...args) {
+        new(meme) U(std::forward<Args>(args)...);
     }
 
-    void destroy(T *p) {
-
-        p->~T();
+    void destroy(T *meme) {
+        meme->~T();
     }
 };
 
